@@ -175,3 +175,10 @@ cd .\barriodigitalrequests
 ```
 
 Las pruebas cubren creación, consultas, validaciones, transiciones de estado, filtros y separación de datos por Cliente.
+
+## Eventos RabbitMQ EP3/EP4
+
+Requests publica comandos solo despues del commit de base de datos mediante
+`@TransactionalEventListener(AFTER_COMMIT)`, JSON persistente y publisher confirms.
+Ver [README-RabbitMQ.md](README-RabbitMQ.md) para variables, contrato, pruebas y
+limitaciones de entrega. La topologia permanece administrada por infraestructura.

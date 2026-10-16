@@ -12,15 +12,18 @@ import java.util.Map;
 import java.util.Set;
 
 import cl.barriodigital.barriodigitalrequests.dto.CreateRequestRequest;
+import cl.barriodigital.barriodigitalrequests.dto.RequestEvent;
 import cl.barriodigital.barriodigitalrequests.dto.RequestResponse;
 import cl.barriodigital.barriodigitalrequests.dto.UpdateRequestStatusRequest;
 import cl.barriodigital.barriodigitalrequests.exception.InvalidRequestFilterException;
 import cl.barriodigital.barriodigitalrequests.exception.InvalidStatusTransitionException;
 import cl.barriodigital.barriodigitalrequests.exception.RequestNotFoundException;
 import cl.barriodigital.barriodigitalrequests.model.RequestEntity;
+import cl.barriodigital.barriodigitalrequests.messaging.RequestEventFactory;
 import cl.barriodigital.barriodigitalrequests.model.RequestStatus;
 import cl.barriodigital.barriodigitalrequests.repository.RequestRepository;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,10 +36,15 @@ public class RequestService {
 
     private final RequestRepository requestRepository;
     private final RequestMapper requestMapper;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final RequestEventFactory requestEventFactory;
 
-    public RequestService(RequestRepository requestRepository, RequestMapper requestMapper) {
+    public RequestService(RequestRepository requestRepository, RequestMapper requestMapper,
+            ApplicationEventPublisher applicationEventPublisher, RequestEventFactory requestEventFactory) {
         this.requestRepository = requestRepository;
         this.requestMapper = requestMapper;
+        this.applicationEventPublisher = applicationEventPublisher;
+        this.requestEventFactory = requestEventFactory;
     }
 
     @Transactional
@@ -47,7 +55,9 @@ public class RequestService {
         entity.setStatus(RequestStatus.INGRESADO);
         entity.setCreatedBy(StringUtils.hasText(createdBy) ? createdBy.trim() : null);
 
-        return requestMapper.toResponse(requestRepository.save(entity));
+        RequestEntity saved = requestRepository.save(entity);
+        applicationEventPublisher.publishEvent(requestEventFactory.create(RequestEvent.Type.REQUEST_CREATED, saved));
+        return requestMapper.toResponse(saved);
     }
 
     @Transactional(readOnly = true)
@@ -111,7 +121,9 @@ public class RequestService {
         validateTransition(entity.getStatus(), request.status());
         entity.setStatus(request.status());
 
-        return requestMapper.toResponse(requestRepository.save(entity));
+        RequestEntity saved = requestRepository.save(entity);
+        applicationEventPublisher.publishEvent(requestEventFactory.create(RequestEvent.Type.REQUEST_STATUS_CHANGED, saved));
+        return requestMapper.toResponse(saved);
     }
 
     private void validateTransition(RequestStatus currentStatus, RequestStatus newStatus) {
