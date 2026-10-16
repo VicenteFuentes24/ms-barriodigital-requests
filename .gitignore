@@ -6,3 +6,12 @@ barriodigitalrequests/target/
 barriodigitalrequests/.vscode/
 .idea/
 *.iml
+# Private deployment material: templates are tracked, real credentials never are.
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+.erlang.cookie
+*.erlang.cookie
+secrets/
