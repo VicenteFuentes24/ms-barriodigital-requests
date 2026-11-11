@@ -22,6 +22,7 @@ import cl.barriodigital.barriodigitalrequests.model.RequestEntity;
 import cl.barriodigital.barriodigitalrequests.messaging.RequestEventFactory;
 import cl.barriodigital.barriodigitalrequests.model.RequestStatus;
 import cl.barriodigital.barriodigitalrequests.repository.RequestRepository;
+import cl.barriodigital.barriodigitalrequests.kafka.KafkaEventCapture;
 import org.springframework.data.domain.Sort;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.jpa.domain.Specification;
@@ -38,13 +39,16 @@ public class RequestService {
     private final RequestMapper requestMapper;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final RequestEventFactory requestEventFactory;
+    private final KafkaEventCapture kafkaEvents;
 
     public RequestService(RequestRepository requestRepository, RequestMapper requestMapper,
-            ApplicationEventPublisher applicationEventPublisher, RequestEventFactory requestEventFactory) {
+            ApplicationEventPublisher applicationEventPublisher, RequestEventFactory requestEventFactory,
+            KafkaEventCapture kafkaEvents) {
         this.requestRepository = requestRepository;
         this.requestMapper = requestMapper;
         this.applicationEventPublisher = applicationEventPublisher;
         this.requestEventFactory = requestEventFactory;
+        this.kafkaEvents = kafkaEvents;
     }
 
     @Transactional
@@ -56,6 +60,7 @@ public class RequestService {
         entity.setCreatedBy(StringUtils.hasText(createdBy) ? createdBy.trim() : null);
 
         RequestEntity saved = requestRepository.save(entity);
+        kafkaEvents.created(saved);
         applicationEventPublisher.publishEvent(requestEventFactory.create(RequestEvent.Type.REQUEST_CREATED, saved));
         return requestMapper.toResponse(saved);
     }
@@ -115,13 +120,15 @@ public class RequestService {
 
     @Transactional
     public RequestResponse updateStatus(Long id, UpdateRequestStatusRequest request) {
-        RequestEntity entity = requestRepository.findById(id)
+        RequestEntity entity = (kafkaEvents.enabled() ? requestRepository.findByIdForUpdate(id) : requestRepository.findById(id))
                 .orElseThrow(() -> new RequestNotFoundException(id));
 
         validateTransition(entity.getStatus(), request.status());
+        RequestStatus previousStatus = entity.getStatus();
         entity.setStatus(request.status());
 
         RequestEntity saved = requestRepository.save(entity);
+        kafkaEvents.changed(saved, previousStatus);
         applicationEventPublisher.publishEvent(requestEventFactory.create(RequestEvent.Type.REQUEST_STATUS_CHANGED, saved));
         return requestMapper.toResponse(saved);
     }

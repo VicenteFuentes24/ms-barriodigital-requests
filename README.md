@@ -1,5 +1,7 @@
 # ms-barriodigital-requests
 
+La integración Kafka EV5/EV6 está disponible y **desactivada por defecto**. Consultar [README-Kafka.md](README-Kafka.md) para diseño, migración manual y activación, y [VALIDACION-Kafka.md](VALIDACION-Kafka.md) para pruebas y verificación del circuito. La integración RabbitMQ documentada aquí se conserva.
+
 Microservicio de trámites de BarrioDigital. Gestiona la creación, consulta, filtrado y cambio de estado de solicitudes comunales.
 
 ## Stack
